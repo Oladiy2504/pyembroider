@@ -1,36 +1,44 @@
-from io import BytesIO
-
 import telebot
-from PIL import Image
+from orca.settings import messagesAreDetailed
 from telebot import types
+
+from parsing_data import strings_parsing, conv_parsing
 
 TOKEN = 'YOUR_TOKEN'
 
 bot = telebot.TeleBot(TOKEN)
 
 
-def check_flags():
+def check_flags(user_id : str) -> bool:
     return True
 
 
-def check_flag_adding_string():
+def check_flag_adding_strings(user_id : str) -> bool:
     return True
 
+def update_flag_adding_strings(user_id : str, to : bool) -> None:
+    pass
 
-def check_flag_adding_pic():
+
+def check_flag_adding_pic(user_id : str) -> bool:
     return True
 
+def update_flag_adding_pic(user_id : str, to : bool) -> None:
+    pass
 
-def check_flag_changing_conv():
+
+def check_flag_changing_conv(user_id : str) -> bool:
     return True
 
+def update_flag_changing_conv(user_id : str, to : bool) -> None:
+    pass
 
-def check_flag_changing_scale():
+
+def check_flag_asking_to_withdraw(user_id : str) -> bool:
     return True
 
-
-def check_flag_asking_to_withdraw():
-    return True
+def update_flag_asking_to_withdraw(user_id : str, to : bool) -> None:
+    pass
 
 
 @bot.message_handler(commands=['help', 'start'])
@@ -49,7 +57,7 @@ def command_handler(message):
 
 @bot.message_handler(content_types=['text'])
 def command_handler(message):
-    if not check_flags():
+    if not check_flags(message.chat.id):
         if message.text == "Памагите 🥺":
             bot.send_message(message.chat.id, text=f'''
                                     Вот список команд, которые исполняются при нажатии на кнопки:/n
@@ -69,7 +77,7 @@ def command_handler(message):
                                     ''')
 
         elif message.text == "Добавить нитки 🐑":
-            flag_adding_strings = True
+            update_flag_adding_strings(message.chat.id, True)
             bot.send_message(message.chat.id, text=f'''
                 Добавь нитки в формате: цвет в HEX - длина в см./n
                 Можно добавлять сразу несколько, разделяй каждый ввод запятой, например:/n
@@ -77,7 +85,7 @@ def command_handler(message):
             ''')
 
         elif message.text == "Обработать изображение 🖼":
-            flag_adding_scale = True
+            update_flag_adding_pic(message.chat.id, True)
             bot.send_message(message.chat.id, text=f'''
                 Начнем! Для начал сообщи мне размеры изображения. Введи кол-во клеток в длину и ширину одним сообщением через пробел.
             ''')
@@ -91,36 +99,54 @@ def command_handler(message):
             bot.send_message(message.chat.id, text=f'''
                 Команда не найдена. Если вы забыли, какие команды есть - пропиши /help, для вызова кнопок пропиши /start
             ''')
-    elif check_flag_adding_string():
-        # тут пропарсить сообщение и добавить к юзеру в таблицу цвет, длину
-        pass
 
-    elif check_flag_adding_pic():
-        photo = message.photo[-1]
-        file_info = bot.get_file(photo.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        img = Image.open(BytesIO(downloaded_file))
-        rotated_img = img.rotate(90,
-                                 expand=True)  # пока тут rotate, когда появится преобразование в нужный формат - будет другое
-        bio = BytesIO()
-        bio.seek(0)
-        rotated_img.save(bio, format="JPEG")
-        bio.name = 'pixelated_image.jpg'
-        bio.seek(0)
-        bot.send_photo(message.chat.id, photo=bio)
-        bot.send_message(message.chat.id,
-                         text="Готово! Вам понадобится: *прописать нитки*. Желаете ли вы использовать имеющиеся?")
 
-    elif check_flag_changing_conv():
-        # приписать пользователю по айди длину и ширину картинки
-        bot.send_message(message.chat.id, text="Добавлен цвет и длина")
-        pass
+    elif check_flag_adding_strings(message.chat.id):
+        if message.text == "stop":
+            bot.send_message(message.chat.id, text="Прекращаю добавлять цвета. Для кнопок снова пропишите /start")
 
-    elif check_flag_changing_scale():
-        bot.send_message(message.chat.id, text="Добавлен размер клетки. Введите изображение")
-        pass
-        # приписать пользователю по айди размер 1 пикселя
+            update_flag_adding_strings(message.chat.id, False)
+        else:
+            text_data = strings_parsing(message.text)
+            if text_data:
+                for [i, j] in text_data:
+                    #добавляем их в таблицу
+                    continue
+            else:
+                bot.send_message(message.chat.id, text="Неправильный формат ввода! Если вы хотели прекратить ввод - пропишите /stop")
 
-    elif check_flag_asking_to_withdraw():
-        bot.send_message(message.chat.id, text="хорошо, списываем")
-        # спросить, списывать ли нитки пользователя
+
+    elif check_flag_adding_pic(message.chat.id):
+        #тут пикчу трахать
+        bot.send_message(message.chat.id, text="Готово! Вам понадобится: *прописать нитки*")
+
+        update_flag_adding_pic(message.chat.id, False)
+
+    elif check_flag_changing_conv(message.chat.id):
+        text_data = conv_parsing(message.text)
+        if text_data:
+            # приписать пользователю по айди длину и ширину картинки
+            bot.send_message(message.chat.id,
+                             text="Хорошо. Теперь скажите, хотите ли вы использовать свои нитки или только из новых?. Ответьте да или нет")
+
+            update_flag_changing_conv(message.chat.id, False)
+            update_flag_asking_to_withdraw(message.chat.id, True)
+        else:
+            bot.send_message(message.chat.id, text="Неправильный формат данных!")
+
+    elif check_flag_asking_to_withdraw(message.chat.id):
+        #запомнить выбор пользователя
+        if message.text.lower() == "да":
+            bot.send_message(message.chat.id, text="Хорошо, списываем. Отправьте фотографию")
+
+            update_flag_asking_to_withdraw(message.chat.id, False)
+            update_flag_adding_pic(message.chat.id, True)
+
+        if message.text.lower() == "нет":
+            bot.send_message(message.chat.id, text="Хорошо, не списываем. Отправьте фотографию")
+
+            update_flag_asking_to_withdraw(message.chat.id, False)
+            update_flag_adding_pic(message.chat.id, True)
+
+        else:
+            bot.send_message(message.chat.id, text="Неправильный формат ввода!")
