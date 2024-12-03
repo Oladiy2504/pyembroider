@@ -1,67 +1,55 @@
-from src.db.database_handler import DataBaseHandler, Base
-from src.util.image_processing import *
-import sqlite3
-import scrapy
-from scrapy.settings import Settings
-from scrapy.crawler import CrawlerProcess
-from sqlalchemy import Column, Integer
-from pathlib import Path
+import requests
+from bs4 import BeautifulSoup
+from src.db.database_handler import GammaHandler
+
+url = "https://firma-gamma.ru/articles/colormap-muline/"
 
 
-class Colors(Base):
-    __tablename__ = "colors"
-
-    ColorId = Column(Integer, primary_key=True)
-    Gamma = Column(Integer)
-
-
-class GammaHandler(DataBaseHandler):
-    def __init__(self, sqlite_db_path: str):
-        super().__init__(sqlite_db_path)
+def hex_to_rgb(hex: str) -> list[int]:
+    """
+    Converts a hex value to RGB color.
+    :param hex: string with hex value
+    :return: list with RGB values
+    """
+    hex = hex.lstrip('#')
+    return list(int(hex[i:i + 2], 16) for i in (0, 2, 4))
 
 
-class ColorParserPipeline:
-    def process_item(self, item, spider):
-        return item
+def parse_gamma_table(g_handler: GammaHandler) -> int:
+    """
+    Parse table of Gamma colors from firma-gamma.ru and insert values into database
+    :param g_handler: handler for database
+    :return: 0 in case of success, -1 in case of failure
+    """
+    soup = BeautifulSoup(response.text, "html.parser")
+    table = soup.find("table")
 
-
-class ColormapItem(scrapy.Item):
-    color_code = scrapy.Field()
-    color_name = scrapy.Field()
-    color_hex = scrapy.Field()
-
-
-class ColorsSpider(scrapy.Spider):
-    name = "colors"
-    start_urls = ["https://firma-gamma.ru/articles/colormap-muline/"]
-
-    def get_background_color(self, attr):
-        styles = attr.split(';')
-        for style in styles:
-            if 'background-color' in style:
-                return style.split(':')[1].strip()
-
-    def parse(self, response):
-        rows = response.xpath('//table//tr')
-        elem = response.css('td[style]')
-        i = 0
+    if table:
+        rows = table.find_all("tr")
         for row in rows[1:]:
-            i += 1
-            row = rows[i]
-            attr = elem[i].attrib.get('style', '')
-            color = self.get_background_color(attr)
-            item = ColormapItem()
-            item['color_code'] = row.xpath('./td[1]//text()').get()
-            item['color_name'] = row.xpath('./td[2]//text()').get()
-            item['color_hex'] = color
-            yield item
+            cols = row.find_all("td")
+            gamma_code = cols[1].text.strip()
+            color = cols[4].get("style")
+            if "background-color" not in color:
+                return -1
+            i = color.find("background-color:") + len("background-color:")
+            color = color[i:i + 7]
+
+            g_handler.insert(hex_to_rgb(color), gamma_code)
+    else:
+        return -1
+
+    return 0
 
 
 if __name__ == "__main__":
-    custom_settings = {
-        'FEED_FORMAT': 'json',
-        'FEED_URI': 'output.json',
-    }
-    process = CrawlerProcess(settings=Settings(values=custom_settings))
-    process.crawl(ColorsSpider)
-    process.start()
+    handler = GammaHandler("../db/colors.sql")
+
+    response = requests.get(url)
+    if response.status_code == 200:
+        parse_result = parse_gamma_table(handler)
+        assert parse_result == 0, ValueError("Gamma parsing failed")
+    else:
+        print(f"Не удалось загрузить страницу. Код ошибки: {response.status_code}")
+
+    handler.teardown()
