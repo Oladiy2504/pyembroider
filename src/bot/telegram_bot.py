@@ -1,7 +1,9 @@
 import telebot
 from telebot import types
+from src.db.user_database_handler import UserGammaHandler
+from parsing_data import strings_parsing, conv_parsing, get_rgb_by_gamma
 
-from parsing_data import strings_parsing, conv_parsing
+handler = UserGammaHandler("../db/user_colors.sql")
 
 TOKEN = 'YOUR_TOKEN'
 
@@ -109,7 +111,7 @@ def command_handler(message):
             text_data = strings_parsing(message.text)
             if text_data:
                 for [i, j] in text_data:
-                    #добавляем их в таблицу
+                    handler.insert(get_rgb_by_gamma(i), i)
                     continue
             else:
                 bot.send_message(message.chat.id, text="Неправильный формат ввода! Если вы хотели прекратить ввод - пропишите /stop")

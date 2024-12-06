@@ -18,13 +18,33 @@ def get_palette():
     
     return {idx: (r, g, b) for idx, r, g, b in colors}
 
-def closest_color(requested_color, palette):
+def get_user_palette():
+    db_path = os.path.join(os.path.dirname(__file__), '..', 'db', 'user_colors.sql')
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT Gamma, r, g, b FROM Colors")
+            colors = cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Ошибка при доступе к базе данных: {e}")
+        return {}
+    
+    return {idx: (r, g, b) for idx, r, g, b in colors}
+
+def closest_color(requested_color, palette, user_palette, alpha):
     min_colors = {}
-    for key, (r_c, g_c, b_c) in palette.items():
+    if(alpha != 0):
+        for key, (r_c, g_c, b_c) in palette.items():
+            rd = (r_c - requested_color[0]) ** 2
+            gd = (g_c - requested_color[1]) ** 2
+            bd = (b_c - requested_color[2]) ** 2
+            min_colors[(rd + gd + bd) * alpha] = key
+    for key, (r_c, g_c, b_c) in user_palette.items():
         rd = (r_c - requested_color[0]) ** 2
         gd = (g_c - requested_color[1]) ** 2
         bd = (b_c - requested_color[2]) ** 2
         min_colors[(rd + gd + bd)] = key
+    
     return min_colors[min(min_colors.keys())]
 
 def resize_image(image, max_size):
@@ -50,7 +70,7 @@ def closest_color_from_selected(requested_color, selected_colors, palette):
             closest_color = color
     return closest_color
 
-def create_color_scheme(image, grid_size, palette, max_colors=None):
+def create_color_scheme(image, grid_size, palette, user_palette, max_colors=None, alpha = 1):
     """Создаем схему цветов для вышивки."""
     img_array = np.array(image)
     height, width = img_array.shape[:2]
@@ -63,7 +83,7 @@ def create_color_scheme(image, grid_size, palette, max_colors=None):
         for x in range(0, width, grid_size):
             block = img_array[y:y + grid_size, x:x + grid_size]
             avg_color = get_average_color(block)
-            color_index = closest_color(avg_color, palette)
+            color_index = closest_color(avg_color, palette, user_palette, alpha)
             row.append(color_index)
             color_counts[color_index] = color_counts.get(color_index, 0) + 1
 
@@ -147,12 +167,13 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
             y_offset -= 5  
     c.save()
 
-def image_proc(image_path, output_pdf_path, max_colors=None, max_size=(100, 100), grid_size=1):
+def image_proc(image_path, output_pdf_path, max_colors=None, max_size=(100, 100), grid_size=1, alpha = 1):
     try:
         palette = get_palette()
+        user_palette = get_user_palette()
         image = Image.open(image_path)
         image = resize_image(image, max_size).convert('RGB')
-        scheme, color_counts = create_color_scheme(image, grid_size, palette, max_colors)
+        scheme, color_counts = create_color_scheme(image, grid_size, palette, user_palette, max_colors, alpha)
         save_scheme_to_pdf(scheme, color_counts, output_pdf_path)
     except Exception as e:
         print(f"Ошибка при обработке изображения: {e}")
