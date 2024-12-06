@@ -1,12 +1,14 @@
 import sqlite3
 from PIL import Image
 import numpy as np
+import os
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
 def get_palette():
+    db_path = os.path.join(os.path.dirname(__file__), '..', 'db', 'colors.sql')
     try:
-        with sqlite3.connect(r'C:\Users\User\pyembroider\src\db\colors.sql') as conn:
+        with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT Gamma, r, g, b FROM Colors")
             colors = cursor.fetchall()
@@ -42,7 +44,6 @@ def closest_color_from_selected(requested_color, selected_colors, palette):
     min_distance = float('inf')
     closest_color = None
     for color in selected_colors.keys():
-        # Дистанция в RGB-пространстве
         distance = sum((palette[color][i] - requested_color[i]) ** 2 for i in range(3))
         if distance < min_distance:
             min_distance = distance
@@ -91,6 +92,14 @@ def create_color_scheme(image, grid_size, palette, max_colors=None):
 
     return scheme, color_counts
 
+def get_contrast_color(r,g,b):
+    brightness = (r * 0.299 + g * 0.587 + b * 0.114)
+    
+    if brightness > 186:
+        return [0, 0, 0]
+    else:
+        return [1, 1, 1]
+
 def save_scheme_to_pdf(scheme, color_counts, filename):
     """Сохраняем схему в PDF файл."""
     scale = 18
@@ -109,7 +118,7 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
             c.setFillColorRGB(r / 255, g / 255, b / 255)
             c.rect(x * scale, (num_rows - y - 1) * scale, scale, scale, fill=True)
             color_number = str(color_indices[color])
-            c.setFillColorRGB(1, 1, 1)
+            c.setFillColorRGB(get_contrast_color(r,g,b)[0], get_contrast_color(r,g,b)[1], get_contrast_color(r,g,b)[2])
             c.setFont("Helvetica", 8)
             c.drawString(x * scale + scale / 4, (num_rows - y - 1) * scale + scale / 4, color_number)
 
@@ -147,3 +156,4 @@ def image_proc(image_path, output_pdf_path, max_colors=None, max_size=(100, 100)
         save_scheme_to_pdf(scheme, color_counts, output_pdf_path)
     except Exception as e:
         print(f"Ошибка при обработке изображения: {e}")
+        
