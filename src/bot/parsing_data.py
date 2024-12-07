@@ -5,9 +5,9 @@ from src.db.database_handler import Colors, GammaHandler
 def strings_parsing(s : str) -> list:
     ans = []
     for i in s.split(','):
-        color, length = map(int, i.split())
         try:
-            color = int(color)
+            color, length = map(str.strip, i.split('-'))
+            color = int(color.strip('#'), 16)
             length = int(length)
             ans.append([color, length])
         except:

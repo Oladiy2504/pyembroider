@@ -1,17 +1,20 @@
+import os
+
 import telebot
 from telebot import types
-from src.db.user_database_handler import UserGammaHandler
-from parsing_data import strings_parsing, conv_parsing, get_rgb_by_gamma
+from src.db.user_database_handler import UserAvailableHandler
+from src.bot.parsing_data import strings_parsing, conv_parsing, get_rgb_by_gamma
+from src.util.image_processing import image_proc
 
-handler = UserGammaHandler("../db/user_colors.sql")
+handler = UserAvailableHandler("../db/user_colors.sql")
 
-TOKEN = 'YOUR_TOKEN'
+TOKEN = '7932733884:AAFsKDKeuFDvlbtue-jgf-bU2XKdMdzVgrM'
 
 bot = telebot.TeleBot(TOKEN)
 
 user_flags = {}
 length = 100
-width = 1000 / 10
+width = 100
 
 def update_user_flag(user_id, flag_name, state): # флаги для ввода ин-фы от юзера
     if user_id not in user_flags:
@@ -62,11 +65,11 @@ def command_handler(message):
             bot.send_message(user_id, text="Команда не найдена. Пропиши /help для получения списка команд.")
 
 
-    elif check_user_flag(message.chat.id, "adding_string"):
+    elif check_user_flag(message.chat.id, "adding_strings"):
 
         if message.text == "stop":
             bot.send_message(message.chat.id, text="Прекращаю добавлять цвета. Для кнопок снова пропишите /start")
-            update_user_flag(message.chat.id, "adding_string", False)
+            update_user_flag(message.chat.id, "adding_strings", False)
 
         else:
             text_data = strings_parsing(message.text)
@@ -76,11 +79,6 @@ def command_handler(message):
                     continue
             else:
                 bot.send_message(message.chat.id, text="Неправильный формат ввода! Если вы хотели прекратить ввод - пропишите /stop")
-
-
-    elif check_user_flag(message.chat.id, "adding_pic"): # тут ввод ин-фы от пользователя
-        bot.send_message(message.chat.id, text="Готово! Вам понадобится: *прописать нитки*")
-        update_user_flag(message.chat.id, "adding_pic", False)
 
 
     elif check_user_flag(user_id, 'changing_conv'):
@@ -109,4 +107,30 @@ def command_handler(message):
 
 
     else:
-        bot.send_message(message.chat.id, text="Это не команда! Чтобы ознакомиться со списком команд, пропишите /help")
+        bot.send_message(user_id, text="Это не команда! Чтобы ознакомиться со списком команд, пропишите /help")
+
+
+@bot.message_handler(content_types=['photo'])
+def handle_image(message):
+    if check_user_flag(message.chat.id, 'adding_pic'):
+        file_info = bot.get_file(message.photo[-1].file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        image_path = f'received_image{message.chat.id}.jpg'
+        pdf_path = f'output_image.pdf{message.chat.id}.pdf'
+        with open(image_path, 'wb') as new_file:
+            new_file.write(downloaded_file)
+        image_proc(image_path, pdf_path)
+        with open(pdf_path, 'rb') as pdf_file:
+            bot.send_document(message.chat.id, pdf_file)
+        os.remove(image_path)
+        os.remove(pdf_path)
+    else:
+        bot.send_message(message.chat.id, text="Ну и нах ты мне это прислал? Яж не просил")
+
+
+@bot.message_handler(func=lambda message: True)
+def error_handler(message):
+    bot.send_message(message.chat.id, text=f"Ой, кажется, вы что-то сделали не так! Вот подробная инструкция по использованию бота: https://youtu.be/dQw4w9WgXcQ?si=1DZGpDS1RDhs-ZJA")
+
+bot.polling(none_stop=True, interval=0)
