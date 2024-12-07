@@ -1,11 +1,15 @@
-from sqlalchemy import Column, Integer, UniqueConstraint, create_engine, insert
+from sqlalchemy import Column, Integer, UniqueConstraint, create_engine, insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base
 
-Base = declarative_base()
+ColorBase = declarative_base()
 
 
 class DataBaseHandler:
+    """
+    Base class for database handlers.
+    """
+
     def __init__(self, sqlite_db_path: str):
         """
         Initialize all the context for working with database
@@ -18,7 +22,10 @@ class DataBaseHandler:
         self.connection.close()
 
 
-class Colors(Base):
+class Colors(ColorBase):
+    """
+    Class for table with Gamma-colors
+    """
     __tablename__ = "colors"
 
     ColorId = Column(Integer, primary_key=True)
@@ -33,9 +40,12 @@ class Colors(Base):
 
 
 class GammaHandler(DataBaseHandler):
+    """
+    Handler for Gamma-colors database
+    """
     def __init__(self, sqlite_db_path: str):
         super().__init__(sqlite_db_path)
-        Base.metadata.create_all(self.engine)
+        ColorBase.metadata.create_all(self.engine)
 
     def insert(self, rgb: list[int], gamma_code: int) -> None:
         """
@@ -50,3 +60,24 @@ class GammaHandler(DataBaseHandler):
             self.connection.commit()
         except IntegrityError:
             pass
+
+    def select_palette(self) -> dict[int: tuple[int, int, int]]:
+        """
+        Select all Gamma palette
+        :return: dict of format {gamma_code: (r, g, b)}
+        """
+        query = select(Colors)
+        results = self.connection.execute(query).fetchall()
+        return {idx: (r, g, b) for i, idx, r, g, b in results}
+
+    def get_rgb(self, gamma_id: int) -> tuple[int, int, int]:
+        """
+        Get rgb from gamma_id
+        :param gamma_id: id in Gamma system
+        :return: tuple (r, g, b)
+        """
+        query = select(Colors.R, Colors.G, Colors.B).where(Colors.Gamma == gamma_id)
+        results = self.connection.execute(query).fetchall()
+        if len(results) == 0:
+            raise ValueError(f"Non-existing Gamma code: {gamma_id}")
+        return results[0]

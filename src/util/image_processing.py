@@ -1,39 +1,47 @@
-import sqlite3
 from PIL import Image
 import numpy as np
 import os
-from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from src.db.database_handler import GammaHandler
+from src.db.user_database_handler import UserAvailableHandler
+
 
 def get_palette():
     db_path = os.path.join(os.path.dirname(__file__), '..', 'db', 'colors.sql')
     try:
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT Gamma, r, g, b FROM Colors")
-            colors = cursor.fetchall()
-    except sqlite3.Error as e:
+        handler = GammaHandler(db_path)
+        results = handler.select_palette()
+        handler.teardown()
+    except BaseException as e:
         print(f"Ошибка при доступе к базе данных: {e}")
         return {}
-    
-    return {idx: (r, g, b) for idx, r, g, b in colors}
+
+    return results
+
 
 def get_user_palette():
     db_path = os.path.join(os.path.dirname(__file__), '..', 'db', 'user_colors.sql')
     try:
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT Gamma, r, g, b FROM Colors")
-            colors = cursor.fetchall()
-    except sqlite3.Error as e:
+        user_handler = UserAvailableHandler(db_path)
+        ids = user_handler.select_colors()
+        user_handler.teardown()
+
+        gamma_hander = GammaHandler(db_path)
+        results = dict()
+        for gamma_id in ids:
+            results[gamma_id] = gamma_hander.get_rgb(gamma_id)
+        gamma_hander.teardown()
+    except BaseException as e:
         print(f"Ошибка при доступе к базе данных: {e}")
         return {}
-    
-    return {idx: (r, g, b) for idx, r, g, b in colors}
+
+    return results
+
 
 def closest_color(requested_color, palette, user_palette, alpha):
+    """Find the closest color to requested_color."""
     min_colors = {}
-    if(alpha != 0):
+    if alpha != 0:
         for key, (r_c, g_c, b_c) in palette.items():
             rd = (r_c - requested_color[0]) ** 2
             gd = (g_c - requested_color[1]) ** 2
@@ -44,13 +52,15 @@ def closest_color(requested_color, palette, user_palette, alpha):
         gd = (g_c - requested_color[1]) ** 2
         bd = (b_c - requested_color[2]) ** 2
         min_colors[(rd + gd + bd)] = key
-    
+
     return min_colors[min(min_colors.keys())]
+
 
 def resize_image(image, max_size):
     """Изменяем размер изображения."""
     image.thumbnail(max_size)
     return image
+
 
 def get_average_color(block):
     """Нахождение усредненного цвета в блоке."""
@@ -58,6 +68,7 @@ def get_average_color(block):
     average_color = block.mean(axis=(0, 1)).astype(int)
 
     return tuple(average_color)
+
 
 def closest_color_from_selected(requested_color, selected_colors, palette):
     """Находите ближайший цвет из выбранных цветов."""
@@ -70,7 +81,8 @@ def closest_color_from_selected(requested_color, selected_colors, palette):
             closest_color = color
     return closest_color
 
-def create_color_scheme(image, grid_size, palette, user_palette, max_colors=None, alpha = 1):
+
+def create_color_scheme(image, grid_size, palette, user_palette, max_colors=None, alpha=1):
     """Создаем схему цветов для вышивки."""
     img_array = np.array(image)
     height, width = img_array.shape[:2]
@@ -112,20 +124,21 @@ def create_color_scheme(image, grid_size, palette, user_palette, max_colors=None
 
     return scheme, color_counts
 
-def get_contrast_color(r,g,b):
+
+def get_contrast_color(r, g, b):
     brightness = (r * 0.299 + g * 0.587 + b * 0.114)
-    
+
     if brightness > 186:
         return [0, 0, 0]
     else:
         return [1, 1, 1]
+
 
 def save_scheme_to_pdf(scheme, color_counts, filename):
     """Сохраняем схему в PDF файл."""
     scale = 18
     num_rows = len(scheme)
     num_cols = len(scheme[0]) if num_rows > 0 else 0
-
 
     unique_colors = list(color_counts.keys())
     color_indices = {color: index + 1 for index, color in enumerate(unique_colors)}
@@ -138,7 +151,8 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
             c.setFillColorRGB(r / 255, g / 255, b / 255)
             c.rect(x * scale, (num_rows - y - 1) * scale, scale, scale, fill=True)
             color_number = str(color_indices[color])
-            c.setFillColorRGB(get_contrast_color(r,g,b)[0], get_contrast_color(r,g,b)[1], get_contrast_color(r,g,b)[2])
+            c.setFillColorRGB(get_contrast_color(r, g, b)[0], get_contrast_color(r, g, b)[1],
+                              get_contrast_color(r, g, b)[2])
             c.setFont("Helvetica", 8)
             c.drawString(x * scale + scale / 4, (num_rows - y - 1) * scale + scale / 4, color_number)
 
@@ -149,25 +163,26 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
     c.setFont("Helvetica", 12)
     y_offset = page_height - 60
     color_square_size = 10
-    
+
     for index, (color, count) in enumerate(color_counts.items()):
         color_index = color_indices[color]
         description = f"Color count {color_index} (Gamma{color}) : {count}"
-        x_offset = 10 if (index % 2 == 0) else page_width / 2 
-        
+        x_offset = 10 if (index % 2 == 0) else page_width / 2
+
         r, g, b = get_palette()[color]
         c.setFillColorRGB(r / 255, g / 255, b / 255)
         c.rect(x_offset, y_offset - 8, color_square_size, color_square_size, fill=True)
-        
+
         c.setFillColorRGB(0, 0, 0)
         text_x_offset = x_offset + color_square_size + 5
-        c.drawString(text_x_offset, y_offset - 8 , description)
+        c.drawString(text_x_offset, y_offset - 8, description)
         y_offset -= 15
         if (index + 1) % 2 == 0:
-            y_offset -= 5  
+            y_offset -= 5
     c.save()
 
-def image_proc(image_path, output_pdf_path, max_colors=None, max_size=(100, 100), grid_size=1, alpha = 1):
+
+def image_proc(image_path, output_pdf_path, max_colors=None, max_size=(100, 100), grid_size=1, alpha=1):
     try:
         palette = get_palette()
         user_palette = get_user_palette()
@@ -177,4 +192,3 @@ def image_proc(image_path, output_pdf_path, max_colors=None, max_size=(100, 100)
         save_scheme_to_pdf(scheme, color_counts, output_pdf_path)
     except Exception as e:
         print(f"Ошибка при обработке изображения: {e}")
-        
