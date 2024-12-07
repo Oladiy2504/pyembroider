@@ -11,7 +11,7 @@ bot = telebot.TeleBot(TOKEN)
 
 user_flags = {}
 length = 100
-width = 100
+width = 1000 / 10
 
 def update_user_flag(user_id, flag_name, state): # флаги для ввода ин-фы от юзера
     if user_id not in user_flags:
