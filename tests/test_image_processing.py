@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from unittest.mock import patch, MagicMock
 
 import numpy as np
-import os
 import pytest
 
 from src.util.image_processing import (
@@ -11,8 +10,7 @@ from src.util.image_processing import (
     closest_color,
     get_average_color,
     create_color_scheme,
-    get_contrast_color,
-    save_scheme_to_pdf,
+    get_contrast_color
 )
 
 @dataclass
@@ -118,11 +116,11 @@ def test_create_color_scheme(mock_closest_color, mock_get_average_color):
     mock_image_array = np.zeros((10, 10, 3), dtype=np.uint8)
     mock_image.__array__ = MagicMock(return_value=mock_image_array)
     palette = {"1": (255, 255, 255)}
-    
+
     user_palette = {}
 
     scheme, color_counts = create_color_scheme(mock_image, 5, palette, user_palette)
-    
+
     assert scheme == [["1", "1"], ["1", "1"]]
     assert color_counts == {"1": 4}
 
@@ -134,7 +132,7 @@ def test_create_color_scheme(mock_closest_color, mock_get_average_color):
         (123, 123, 123, [1, 1, 1]),
         (200, 200, 200, [0, 0, 0]),
         (50, 150, 250, [1, 1, 1]),
-        (0, 0, 0, [1, 1, 1]),             
+        (0, 0, 0, [1, 1, 1]),
         (255, 255, 255, [0, 0, 0]),
         (128, 128, 128, [1, 1, 1]),
         (40, 100, 200, [1, 1, 1]),
