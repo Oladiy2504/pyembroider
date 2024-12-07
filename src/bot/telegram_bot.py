@@ -26,7 +26,7 @@ def check_user_flag(user_id, flag_name):
 
 
 @bot.message_handler(commands=['help', 'start'])
-def command_handler(message): # базовые кнопки
+def help_handler(message): # базовые кнопки
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     help_button = types.KeyboardButton("Памагите 🥺")
     add_strings_button = types.KeyboardButton("Добавить нитки 🐑")
@@ -115,7 +115,6 @@ def handle_image(message):
     if check_user_flag(message.chat.id, 'adding_pic'):
         file_info = bot.get_file(message.photo[-1].file_id)
         downloaded_file = bot.download_file(file_info.file_path)
-
         image_path = f'received_image{message.chat.id}.jpg'
         pdf_path = f'output_image.pdf{message.chat.id}.pdf'
         with open(image_path, 'wb') as new_file:
