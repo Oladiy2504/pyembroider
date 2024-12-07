@@ -66,6 +66,11 @@ def command_handler(message):
         else:
             bot.send_message(user_id, text="Команда не найдена. Пропиши /help для получения списка команд.")
 
+    if message.text == 'stop' and not check_user_flag(message.chat.id, "adding_strings"):
+        update_user_flag(message.chat.id, "changing_conv", False)
+        update_user_flag(message.chat.id, "asking_to_withdraw", False)
+        update_user_flag(message.chat.id, "adding_strings", False)
+        update_user_flag(message.chat.id, "adding_pic", False)
 
     elif check_user_flag(message.chat.id, "adding_strings"):
         if message.text == "stop":
@@ -124,6 +129,8 @@ def handle_image(message):
             bot.send_document(message.chat.id, pdf_file)
         os.remove(image_path)
         os.remove(pdf_path)
+        update_user_flag(message.chat.id, 'adding_pic', False)
+        bot.send_message(message.chat.id, text="Готово!")
     else:
         bot.send_message(message.chat.id, text="Ну и нах ты мне это прислал? Яж не просил")
 
