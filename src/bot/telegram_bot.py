@@ -2,11 +2,11 @@ import os
 
 import telebot
 from telebot import types
-from src.db.user_database_handler import UserAvailableHandler
-from src.bot.parsing_data import strings_parsing, conv_parsing, get_rgb_by_gamma
+#from src.db.user_database_handler import UserAvailableHandler
+from src.bot.parsing_data import strings_parsing, conv_parsing
 from src.util.image_processing import image_proc
 
-handler = UserAvailableHandler("../db/user_colors.sql")
+#handler = UserAvailableHandler("../db/user_colors.sql")
 
 TOKEN = '7932733884:AAFsKDKeuFDvlbtue-jgf-bU2XKdMdzVgrM'
 
@@ -81,7 +81,7 @@ def command_handler(message):
             text_data = strings_parsing(message.text)
             if text_data:
                 for [i, j] in text_data:
-                    handler.insert(get_rgb_by_gamma(i), i)
+                    #handler.insert(get_rgb_by_gamma(i), i)
                     continue
             else:
                 bot.send_message(message.chat.id, text="Неправильный формат ввода! Если вы хотели прекратить ввод - пропишите /stop")
@@ -140,4 +140,4 @@ def handle_image(message):
 def error_handler(message):
     bot.send_message(message.chat.id, text=f"Ой, кажется, вы что-то сделали не так! Вот подробная инструкция по использованию бота: https://youtu.be/dQw4w9WgXcQ?si=1DZGpDS1RDhs-ZJA")
 
-bot.polling(none_stop=True, interval=0)
+#bot.polling(none_stop=True, interval=0)

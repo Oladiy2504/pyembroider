@@ -20,7 +20,7 @@ def conv_parsing(s : str) -> list:
         return [length, width]
     except:
         return []
-    
+'''
 def get_rgb_by_gamma(gamma_value: int):
     db_path = os.path.join(os.path.dirname(__file__), '..', 'db', 'user_colors.sql')
     try:
@@ -33,3 +33,4 @@ def get_rgb_by_gamma(gamma_value: int):
         return []
     
     return [[row['R'], row['G'], row['B']] for row in result]
+'''
