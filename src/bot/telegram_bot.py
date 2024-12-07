@@ -66,15 +66,16 @@ def command_handler(message):
         else:
             bot.send_message(user_id, text="Команда не найдена. Пропиши /help для получения списка команд.")
 
-    if message.text == 'stop' and not check_user_flag(message.chat.id, "adding_strings"):
+    elif message.text == '/stop' and not check_user_flag(message.chat.id, "adding_strings"):
         update_user_flag(message.chat.id, "changing_conv", False)
         update_user_flag(message.chat.id, "asking_to_withdraw", False)
         update_user_flag(message.chat.id, "adding_strings", False)
         update_user_flag(message.chat.id, "adding_pic", False)
+        bot.send_message(user_id, text="ну и ладно... не очень-то и хотелось...")
 
     elif check_user_flag(message.chat.id, "adding_strings"):
-        if message.text == "stop":
-            bot.send_message(message.chat.id, text="Прекращаю добавлять цвета. Для кнопок снова пропишите /start")
+        if message.text == "/stop":
+            bot.send_message(message.chat.id, text="Прекращаю добавлять цвета")
             update_user_flag(message.chat.id, "adding_strings", False)
         else:
             text_data = strings_parsing(message.text)
