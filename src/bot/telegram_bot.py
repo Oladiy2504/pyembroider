@@ -57,7 +57,7 @@ def command_handler(message):
             bot.send_message(user_id, text="Добавь нитки в формате: цвет в HEX - длина в см.")
 
         elif message.text == "Обработать изображение 🖼":
-            update_user_flag(user_id, 'adding_pic', True)
+            update_user_flag(user_id, 'changing_conv', True)
             bot.send_message(user_id, text="Начнем! Введи кол-во клеток в длину и ширину через пробел.")
 
         elif message.text == "Ты кто такой 🧐":
@@ -68,11 +68,9 @@ def command_handler(message):
 
 
     elif check_user_flag(message.chat.id, "adding_strings"):
-
         if message.text == "stop":
             bot.send_message(message.chat.id, text="Прекращаю добавлять цвета. Для кнопок снова пропишите /start")
             update_user_flag(message.chat.id, "adding_strings", False)
-
         else:
             text_data = strings_parsing(message.text)
             if text_data:
