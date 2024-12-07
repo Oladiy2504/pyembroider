@@ -41,12 +41,11 @@ def get_user_palette():
 def closest_color(requested_color, palette, user_palette, alpha):
     """Find the closest color to requested_color."""
     min_colors = {}
-    if alpha != 0:
-        for key, (r_c, g_c, b_c) in palette.items():
-            rd = (r_c - requested_color[0]) ** 2
-            gd = (g_c - requested_color[1]) ** 2
-            bd = (b_c - requested_color[2]) ** 2
-            min_colors[(rd + gd + bd) * alpha] = key
+    for key, (r_c, g_c, b_c) in palette.items():
+        rd = (r_c - requested_color[0]) ** 2
+        gd = (g_c - requested_color[1]) ** 2
+        bd = (b_c - requested_color[2]) ** 2
+        min_colors[(rd + gd + bd) * (alpha + 100) / 100] = key
     for key, (r_c, g_c, b_c) in user_palette.items():
         rd = (r_c - requested_color[0]) ** 2
         gd = (g_c - requested_color[1]) ** 2
