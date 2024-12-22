@@ -1,5 +1,4 @@
 from sqlalchemy import select, delete
-from unittest import TestCase
 
 from src.db.user_database_handler import UserDatabaseHandler, UserIdTable, UserAvailableTable, UserSettingsTable
 

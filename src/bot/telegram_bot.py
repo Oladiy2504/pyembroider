@@ -4,9 +4,10 @@ import os
 from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 
-from src.bot.parsing_data import strings_parsing, conv_parsing
+from src.parsing.parsing_data import strings_parsing, conv_parsing
 from src.db.user_database_handler import UserDatabaseHandler
 from src.util.image_processing import image_proc
+from src.util.text_constants import *
 
 flags = {'adding_pic': -1, 'changing_conv': -2, 'adding_strings': -3, 'asking_to_withdraw': -4, 'if_withdrawing': -5}
 
@@ -40,13 +41,12 @@ async def help_handler(message):  # базовые кнопки
     handler.insert_user(user_id)
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    help_button = types.KeyboardButton("Памагите 🥺 (что делают кнопки/описание команд)")
-    add_strings_button = types.KeyboardButton("Добавить нитки 🐑")
-    start_image_processing = types.KeyboardButton("Обработать изображение 🖼")
-    explain = types.KeyboardButton("Что я за бот такой? 🧐")
-    markup.add(help_button, add_strings_button, start_image_processing, explain)
-    await bot.send_message(message.chat.id, text="Здаров. Что вы хотите сделать?".format(message.from_user),
-                           reply_markup=markup)
+    help_button = types.KeyboardButton(HELP_BUTTON_TEXT)
+    add_strings_button = types.KeyboardButton(ADD_STRINGS_BUTTON_TEXT)
+    start_image_processing = types.KeyboardButton(PROCESS_BUTTON_TEXT)
+    explain = types.KeyboardButton(EXPLAIN_BUTTON_TEXT)
+    markup.add(start_image_processing, add_strings_button, help_button, explain)
+    await bot.send_message(message.chat.id, text=WELCOME_MESSAGE.format(message.from_user), reply_markup=markup)
 
 
 @bot.message_handler(content_types=['text'])
@@ -55,41 +55,33 @@ async def command_handler(message):
 
     if not any(check_user_flag(user_id, flag) for flag in
                ['adding_pic', 'changing_conv', 'adding_strings', 'asking_to_withdraw']):  # чек кнопок
-        if message.text == "Памагите 🥺 (что делают кнопки/описание команд)":
-            await bot.send_message(user_id, text=f'''
-                Вот список команд, которые исполняются при нажатии на кнопки:\n
-                -> Памагите - краткий функционал бота.\n
-                -> Добавить нитки - добавь нитки в формате: цвет - длина нитки в см.\n
-                -> Обработать изображение - начало обработки изображения ботом.\n
-                -> Что я за бот такой? - информация о боте. \n
-            ''')
+        if message.text == HELP_BUTTON_TEXT or message.text == '/help':
+            await bot.send_message(user_id, text=HELP_MESSAGE_TEXT, parse_mode='Markdown')
 
-        elif message.text == "Добавить нитки 🐑":
+        elif message.text == ADD_STRINGS_BUTTON_TEXT or message.text == '/add':
             update_user_flag(user_id, "adding_strings", True)
-            await bot.send_message(user_id, text="Добавь нитки в формате: цвет в HEX - длина в см.")
+            await bot.send_message(user_id, text=ADD_STRINGS_MESSAGE_TEXT)
 
-        elif message.text == "Обработать изображение 🖼":
+        elif message.text == PROCESS_BUTTON_TEXT or message.text == '/process':
             update_user_flag(user_id, 'changing_conv', True)
-            await bot.send_message(user_id, text="Начнем! Введи кол-во клеток в длину и ширину через пробел.")
+            await bot.send_message(user_id, text=PROCESS_MESSAGE_TEXT)
 
-        elif message.text == "Что я за бот такой? 🧐":
-            await bot.send_message(user_id, text='''Я бот, который трансформирует изображение в схему для вышивания, 
-                                                    на основе заданных пользователем длины, ширины изображения и имеющихся у пользователя ниток.
-                                                    Над проектом работали menella00, Oladiy2504 и disbik''')
+        elif message.text == EXPLAIN_BUTTON_TEXT or message.text == '/explain':
+            await bot.send_message(user_id, text=EXPLAIN_MESSAGE_TEXT)
 
         else:
-            await bot.send_message(user_id, text="Команда не найдена. Пропиши /help для получения списка команд.")
+            await bot.send_message(user_id, text=BAD_COMMAND_MESSAGE_TEXT)
 
     elif message.text == '/stop' and not check_user_flag(message.chat.id, "adding_strings"):
         update_user_flag(message.chat.id, "changing_conv", False)
         update_user_flag(message.chat.id, "asking_to_withdraw", False)
         update_user_flag(message.chat.id, "adding_strings", False)
         update_user_flag(message.chat.id, "adding_pic", False)
-        await bot.send_message(user_id, text="Останавливаю процесс обработки изображения")
+        await bot.send_message(user_id, text=PROCESSING_STOP_MESSAGE)
 
     elif check_user_flag(message.chat.id, "adding_strings"):
         if message.text == "/stop":
-            await bot.send_message(message.chat.id, text="Прекращаю добавлять цвета")
+            await bot.send_message(message.chat.id, text=STOP_ADDING_MESSAGE)
             update_user_flag(message.chat.id, "adding_strings", False)
         else:
             text_data = strings_parsing(message.text)
@@ -98,8 +90,7 @@ async def command_handler(message):
                     handler.insert_available(message.chat.id, i, j)
                     continue
             else:
-                await bot.send_message(message.chat.id,
-                                       text="Неправильный формат ввода! Если вы хотели прекратить ввод - пропишите /stop")
+                await bot.send_message(message.chat.id, text=WRONG_FORMAT_MESSAGE)
 
 
     elif check_user_flag(user_id, 'changing_conv'):
@@ -107,31 +98,28 @@ async def command_handler(message):
         if text_data:
             global length, width
             length, width = text_data
-            await bot.send_message(user_id, text="Теперь скажите, хотите ли вы использовать свои нитки?")
+            await bot.send_message(user_id, text=USE_STRINGS_Q_MESSAGE)
             update_user_flag(user_id, 'changing_conv', False)
             update_user_flag(user_id, 'asking_to_withdraw', True)
         else:
-            await bot.send_message(user_id, text="Неправильный формат данных!")
+            await bot.send_message(user_id, text=WRONG_DATA_MESSAGE)
 
 
     elif check_user_flag(user_id, 'asking_to_withdraw'):
         if message.text.lower() == "да":
             update_user_flag(user_id, 'if_withdraw', True)
-            await bot.send_message(user_id, text="Хорошо, будем использовать ваши нитки. Теперь отправьте фотографию.")
+            await bot.send_message(user_id, text=USE_STRINGS_MESSAGE)
             update_user_flag(user_id, 'asking_to_withdraw', False)
             update_user_flag(user_id, 'adding_pic', True)
         elif message.text.lower() == "нет":
             update_user_flag(user_id, 'if_withdraw', False)
-            await bot.send_message(user_id,
-                                   text="Хорошо, не будем использовать ваши нитки. Теперь отправьте фотографию.")
+            await bot.send_message(user_id, text=NO_USE_STRINGS_MESSAGE)
             update_user_flag(user_id, 'asking_to_withdraw', False)
             update_user_flag(user_id, 'adding_pic', True)
         else:
-            await bot.send_message(user_id, text="Неправильный формат ввода!")
-
-
+            await bot.send_message(user_id, text=WRONG_DATA_MESSAGE)
     else:
-        await bot.send_message(user_id, text="Это не команда! Чтобы ознакомиться со списком команд, пропишите /help")
+        await bot.send_message(user_id, text=BAD_COMMAND_MESSAGE_TEXT)
 
 
 @bot.message_handler(content_types=['photo'])
@@ -150,16 +138,14 @@ async def handle_image(message):
         os.remove(image_path)
         os.remove(pdf_path)
         update_user_flag(message.chat.id, 'adding_pic', False)
-        await bot.send_message(message.chat.id, text="Готово!")
+        await bot.send_message(message.chat.id, text=DONE_MESSAGE)
     else:
-        await bot.send_message(message.chat.id,
-                               text="Слишком рано прислали изображение :). Выполняйте заполнение данных по команде")
+        await bot.send_message(message.chat.id, text=TOO_EARLY_MESSAGE)
 
 
 @bot.message_handler(func=lambda message: True)
 async def error_handler(message):
-    await bot.send_message(message.chat.id,
-                           text=f"Ой, кажется, вы что-то сделали не так! Вот подробная инструкция по использованию бота: https://youtu.be/dQw4w9WgXcQ?si=1DZGpDS1RDhs-ZJA")
+    await bot.send_message(message.chat.id, text=MEME_MESSAGE)
 
 
 asyncio.run(bot.infinity_polling())

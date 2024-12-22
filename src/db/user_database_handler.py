@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, UniqueConstraint, insert, select, update, ForeignKey
+from sqlalchemy import Column, Integer, Float, UniqueConstraint, insert, select, update, ForeignKey
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -50,7 +50,7 @@ class UserAvailableTable(UserBase):
     Id = Column(Integer, primary_key=True)
     UserId = Column(Integer, ForeignKey('user_id.Id'))
     GammaId = Column(Integer)
-    Count = Column(Integer)
+    Count = Column(Float)
 
     user_id = relationship("UserIdTable", back_populates="available")
 
@@ -68,7 +68,10 @@ class UserDatabaseHandler(DataBaseHandler):
         super().__init__(sqlite_db_path)
         UserBase.metadata.create_all(self.engine)
 
-    def insert_user(self, tg_id):
+    def check_user_id(self, tg_id: int):
+        pass
+
+    def insert_user(self, tg_id: int):
         try:
             query = insert(UserIdTable).values(TgUserId=tg_id)
             self.connection.execute(query)
@@ -91,7 +94,7 @@ class UserDatabaseHandler(DataBaseHandler):
         return results[0]
 
 
-    def insert_available(self, tg_id: int, gamma_id: int, count: int) -> None:
+    def insert_available(self, tg_id: int, gamma_id: int, count: float) -> None:
         """
         Insert a new line into user available colors database
         :param tg_id: id of telegram user
@@ -99,6 +102,7 @@ class UserDatabaseHandler(DataBaseHandler):
         :param count: list of rgb values
         :return: nothing
         """
+
         try:
             user_id = self.get_user_id(tg_id)
             query = insert(UserAvailableTable).values(UserId=user_id, GammaId=gamma_id, Count=count)
@@ -107,7 +111,7 @@ class UserDatabaseHandler(DataBaseHandler):
         except IntegrityError:
             pass
 
-    def select_available_colors(self, tg_id: int) -> list[tuple[int, int]]:
+    def select_available_colors(self, tg_id: int) -> list[tuple[int, float]]:
         """
         Selects all the available colors in user database
         :return: list of available colors gamma_ids with counts

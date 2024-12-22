@@ -1,5 +1,5 @@
 from src.bot.telegram_bot import update_user_flag, check_user_flag
-from src.bot.parsing_data import strings_parsing, conv_parsing
+from src.parsing.parsing_data import strings_parsing, conv_parsing
 
 
 def test_flag_updates():
