@@ -41,7 +41,7 @@ def get_user_palette(tg_id: int):
 
 
 def closest_color(requested_color, palette, user_palette, alpha):
-    """Find the closest color to requested_color."""
+    """Находим ближайший цвет к нужному"""
     min_colors = {}
     for key, (r_c, g_c, b_c) in palette.items():
         rd = (r_c - requested_color[0]) ** 2
@@ -137,6 +137,8 @@ def get_contrast_color(r, g, b):
 
 def save_scheme_to_pdf(scheme, color_counts, filename):
     """Сохраняем схему в PDF файл."""
+
+    kitten_path = os.path.join(os.path.dirname(__file__), 'stock_image', 'kitten.png')
     scale = 18
     num_rows = len(scheme)
     num_cols = len(scheme[0]) if num_rows > 0 else 0
@@ -161,9 +163,8 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
     c.setFont("Helvetica", 20)
     page_width, page_height = num_cols * scale, num_rows * scale
     c.drawString(10, page_height - 40, "Color Descriptions:")
-    c.setFont("Helvetica", 12)
     y_offset = page_height - 60
-    color_square_size = 10
+    color_square_size = 20
 
     for index, (color, count) in enumerate(color_counts.items()):
         color_index = color_indices[color]
@@ -178,12 +179,23 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
         text_x_offset = x_offset + color_square_size + 5
         c.drawString(text_x_offset, y_offset - 8, description)
         y_offset -= 15
+
+        if y_offset < 50:
+            c.showPage()
+            c.setFont("Helvetica", 20)
+            c.drawString(10, page_height - 40, "Color Descriptions:")
+            y_offset = page_height - 60
+
         if (index + 1) % 2 == 0:
             y_offset -= 5
+
+    c.showPage()
+    c.drawImage(kitten_path, 0, 0, width = num_cols * scale, height = num_rows * scale)
+
     c.save()
 
 
-def image_proc(image_path, output_pdf_path, tg_id: int, max_colors=None, max_size=(100, 100), grid_size=1, alpha=1):
+def image_proc(image_path, output_pdf_path, tg_id: int, max_colors=None, max_size=(100, 100), grid_size=1, alpha=0):
     try:
         palette = get_palette()
         user_palette = get_user_palette(tg_id)
