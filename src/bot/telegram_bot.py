@@ -140,7 +140,7 @@ async def handle_image(message):
         pdf_path = f'output_image.pdf{message.chat.id}.pdf'
         with open(image_path, 'wb') as new_file:
             new_file.write(downloaded_file)
-        image_proc(image_path, pdf_path, message.chat.id, None, (length, width), 1, 1)
+        image_proc(image_path, pdf_path, message.chat.id, None, (length, width), 1, check_user_flag(message.chat.id, 'if_withdraw') * 100)
         with open(pdf_path, 'rb') as pdf_file:
             await bot.send_document(message.chat.id, pdf_file)
         os.remove(image_path)
