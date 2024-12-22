@@ -1,7 +1,9 @@
-from PIL import Image
-import numpy as np
 import os
+
+import numpy as np
+from PIL import Image
 from reportlab.pdfgen import canvas
+
 from src.db.database_handler import GammaHandler
 from src.db.user_database_handler import UserDatabaseHandler
 
@@ -26,11 +28,11 @@ def get_user_palette(tg_id: int):
         ids = user_handler.select_available_colors(tg_id)
         user_handler.teardown()
 
-        gamma_hander = GammaHandler(db_path)
+        gamma_handler = GammaHandler(db_path)
         results = dict()
         for gamma_id in ids:
-            results[gamma_id] = gamma_hander.get_rgb(gamma_id)
-        gamma_hander.teardown()
+            results[gamma_id] = gamma_handler.get_rgb(gamma_id)
+        gamma_handler.teardown()
     except BaseException as e:
         print(f"Ошибка при доступе к базе данных: {e}")
         return {}

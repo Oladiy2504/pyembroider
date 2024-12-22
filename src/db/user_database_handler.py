@@ -54,6 +54,10 @@ class UserAvailableTable(UserBase):
 
     user_id = relationship("UserIdTable", back_populates="available")
 
+    __table_args__ = (
+        UniqueConstraint('UserId', 'GammaId', name='user_color_pair'),
+    )
+
 
 class UserDatabaseHandler(DataBaseHandler):
     """
@@ -103,16 +107,18 @@ class UserDatabaseHandler(DataBaseHandler):
         except IntegrityError:
             pass
 
-    def select_available_colors(self, tg_id: int) -> dict[int: tuple[int, int, int]]:
+    def select_available_colors(self, tg_id: int) -> list[tuple[int, int]]:
         """
         Selects all the available colors in user database
-        :return: list of available colors gamma_ids
+        :return: list of available colors gamma_ids with counts
         """
-        query = select(UserAvailableTable.GammaId).join(UserIdTable).where(UserIdTable.TgUserId == tg_id)
+        query = select(UserAvailableTable.GammaId, UserAvailableTable.Count).join(UserIdTable).where(UserIdTable.TgUserId == tg_id)
         results = self.connection.execute(query).fetchall()
-        return [i[0] for i in results]
+        return results
 
     def update_user_settings(self, tg_id: int, settings: int) -> None:
+        if settings < 0 or settings > 14:
+            raise ValueError("Settings must be between 0 and 14")
         user_id = self.get_user_id(tg_id)
         query = update(UserSettingsTable).where(UserSettingsTable.UserId == user_id).values(UserSettings=settings)
         self.connection.execute(query)

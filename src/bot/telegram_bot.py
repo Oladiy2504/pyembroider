@@ -1,10 +1,11 @@
 import asyncio
 import os
+
 from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 
-from src.db.user_database_handler import UserDatabaseHandler
 from src.bot.parsing_data import strings_parsing, conv_parsing
+from src.db.user_database_handler import UserDatabaseHandler
 from src.util.image_processing import image_proc
 
 flags = {'adding_pic': -1, 'changing_conv': -2, 'adding_strings': -3, 'asking_to_withdraw': -4, 'if_withdrawing': -5}
@@ -44,7 +45,8 @@ async def help_handler(message):  # базовые кнопки
     start_image_processing = types.KeyboardButton("Обработать изображение 🖼")
     explain = types.KeyboardButton("Что я за бот такой? 🧐")
     markup.add(help_button, add_strings_button, start_image_processing, explain)
-    await bot.send_message(message.chat.id, text="Здаров. Что вы хотите сделать?".format(message.from_user), reply_markup=markup)
+    await bot.send_message(message.chat.id, text="Здаров. Что вы хотите сделать?".format(message.from_user),
+                           reply_markup=markup)
 
 
 @bot.message_handler(content_types=['text'])
@@ -120,7 +122,8 @@ async def command_handler(message):
             update_user_flag(user_id, 'adding_pic', True)
         elif message.text.lower() == "нет":
             update_user_flag(user_id, 'if_withdraw', False)
-            await bot.send_message(user_id, text="Хорошо, не будем использовать ваши нитки. Теперь отправьте фотографию.")
+            await bot.send_message(user_id,
+                                   text="Хорошо, не будем использовать ваши нитки. Теперь отправьте фотографию.")
             update_user_flag(user_id, 'asking_to_withdraw', False)
             update_user_flag(user_id, 'adding_pic', True)
         else:
@@ -140,7 +143,8 @@ async def handle_image(message):
         pdf_path = f'output_image.pdf{message.chat.id}.pdf'
         with open(image_path, 'wb') as new_file:
             new_file.write(downloaded_file)
-        image_proc(image_path, pdf_path, message.chat.id, None, (length, width), 1, check_user_flag(message.chat.id, 'if_withdraw') * 100)
+        image_proc(image_path, pdf_path, message.chat.id, None, (length, width), 1,
+                   check_user_flag(message.chat.id, 'if_withdraw') * 100)
         with open(pdf_path, 'rb') as pdf_file:
             await bot.send_document(message.chat.id, pdf_file)
         os.remove(image_path)
@@ -148,7 +152,8 @@ async def handle_image(message):
         update_user_flag(message.chat.id, 'adding_pic', False)
         await bot.send_message(message.chat.id, text="Готово!")
     else:
-        await bot.send_message(message.chat.id, text="Слишком рано прислали изображение :). Выполняйте заполнение данных по команде")
+        await bot.send_message(message.chat.id,
+                               text="Слишком рано прислали изображение :). Выполняйте заполнение данных по команде")
 
 
 @bot.message_handler(func=lambda message: True)
