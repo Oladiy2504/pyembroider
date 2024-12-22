@@ -3,7 +3,7 @@ import numpy as np
 import os
 from reportlab.pdfgen import canvas
 from src.db.database_handler import GammaHandler
-from src.db.user_database_handler import UserAvailableHandler
+from src.db.user_database_handler import UserDatabaseHandler
 
 
 def get_palette():
@@ -19,11 +19,11 @@ def get_palette():
     return results
 
 
-def get_user_palette():
+def get_user_palette(tg_id: int):
     db_path = os.path.join(os.path.dirname(__file__), '..', 'db', 'user_colors.sql')
     try:
-        user_handler = UserAvailableHandler(db_path)
-        ids = user_handler.select_colors()
+        user_handler = UserDatabaseHandler(db_path)
+        ids = user_handler.select_available_colors(tg_id)
         user_handler.teardown()
 
         gamma_hander = GammaHandler(db_path)
@@ -181,10 +181,10 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
     c.save()
 
 
-def image_proc(image_path, output_pdf_path, max_colors=None, max_size=(100, 100), grid_size=1, alpha=1):
+def image_proc(image_path, output_pdf_path, tg_id: int, max_colors=None, max_size=(100, 100), grid_size=1, alpha=1):
     try:
         palette = get_palette()
-        user_palette = get_user_palette()
+        user_palette = get_user_palette(tg_id)
         image = Image.open(image_path)
         image = resize_image(image, max_size).convert('RGB')
         scheme, color_counts = create_color_scheme(image, grid_size, palette, user_palette, max_colors, alpha)

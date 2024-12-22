@@ -1,15 +1,15 @@
+import asyncio
 import os
 from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 
-#from src.db.user_database_handler import UserAvailableHandler
-from src.bot.user_data import UserSettingsDatabase
+from src.db.user_database_handler import UserDatabaseHandler
 from src.bot.parsing_data import strings_parsing, conv_parsing
 from src.util.image_processing import image_proc
 
+flags = {'adding_pic': -1, 'changing_conv': -2, 'adding_strings': -3, 'asking_to_withdraw': -4}
 
-#handler = UserAvailableHandler("../db/user_colors.sql")
-db = UserSettingsDatabase("user_settings.db")
+handler = UserDatabaseHandler("../db/user_colors.sql")
 TOKEN = '7932733884:AAFsKDKeuFDvlbtue-jgf-bU2XKdMdzVgrM'
 
 bot = AsyncTeleBot(TOKEN)
@@ -17,26 +17,27 @@ bot = AsyncTeleBot(TOKEN)
 length = 100
 width = 100
 
-def flag_id(flag : str) -> int:
-    flags = ['adding_pic', 'changing_conv', 'adding_strings', 'asking_to_withdraw']
-    for i in range(4):
-        if flag == flags[i]:
-            return i + 1
-    return -1
 
-def update_user_flag(user_id, flag_name, state) -> None: # флаги для ввода ин-фы от юзера
-    change_id = flag_id(flag_name)
-    cur_st = db.get_user_settings(user_id)
-    if bin(cur_st)[-change_id] != state:
-        cur_st -= (-1 ** state) * (2 ** change_id)
-    db.update_user_settings(user_id, cur_st)
+def update_user_flag(user_id, flag_name, state: bool) -> None:  # флаги для ввода ин-фы от юзера
+    change_id = flags[flag_name]
+    cur_st = bin(handler.get_user_settings(user_id))[2:]
+    cur_st = list(cur_st.zfill(4))
+    cur_st[change_id] = str(int(state))
+    cur_st = ''.join(cur_st)
+    handler.update_user_settings(user_id, int(cur_st, 2))
 
-def check_user_flag(user_id, flag_name) -> None:
-    return db.get_user_settings(user_id)[-flag_id(flag_name)]
+
+def check_user_flag(user_id, flag_name) -> int:
+    settings = bin(handler.get_user_settings(user_id))[2:]
+    settings = settings.zfill(4)
+    return int(settings[flags[flag_name]], 2)
 
 
 @bot.message_handler(commands=['start'])
-async def help_handler(message): # базовые кнопки
+async def help_handler(message):  # базовые кнопки
+    user_id = message.from_user.id
+    handler.insert_user(user_id)
+
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     help_button = types.KeyboardButton("Памагите 🥺")
     add_strings_button = types.KeyboardButton("Добавить нитки 🐑")
@@ -50,7 +51,8 @@ async def help_handler(message): # базовые кнопки
 async def command_handler(message):
     user_id = message.chat.id
 
-    if not any(check_user_flag(user_id, flag) for flag in ['adding_pic', 'changing_conv', 'adding_strings', 'asking_to_withdraw']): # чек кнопок
+    if not any(check_user_flag(user_id, flag) for flag in
+               ['adding_pic', 'changing_conv', 'adding_strings', 'asking_to_withdraw']):  # чек кнопок
         if message.text == "Памагите 🥺":
             await bot.send_message(user_id, text=f'''
                 Вот список команд, которые исполняются при нажатии на кнопки:\n
@@ -91,10 +93,11 @@ async def command_handler(message):
             text_data = strings_parsing(message.text)
             if text_data:
                 for [i, j] in text_data:
-                    #handler.insert(get_rgb_by_gamma(i), i)
+                    # handler.insert(get_rgb_by_gamma(i), i)
                     continue
             else:
-                await bot.send_message(message.chat.id, text="Неправильный формат ввода! Если вы хотели прекратить ввод - пропишите /stop")
+                await bot.send_message(message.chat.id,
+                                       text="Неправильный формат ввода! Если вы хотели прекратить ввод - пропишите /stop")
 
 
     elif check_user_flag(user_id, 'changing_conv'):
@@ -135,7 +138,7 @@ async def handle_image(message):
         pdf_path = f'output_image.pdf{message.chat.id}.pdf'
         with open(image_path, 'wb') as new_file:
             new_file.write(downloaded_file)
-        image_proc(image_path, pdf_path)
+        image_proc(image_path, pdf_path, message.chat.id)
         with open(pdf_path, 'rb') as pdf_file:
             await bot.send_document(message.chat.id, pdf_file)
         os.remove(image_path)
@@ -148,6 +151,8 @@ async def handle_image(message):
 
 @bot.message_handler(func=lambda message: True)
 async def error_handler(message):
-    await bot.send_message(message.chat.id, text=f"Ой, кажется, вы что-то сделали не так! Вот подробная инструкция по использованию бота: https://youtu.be/dQw4w9WgXcQ?si=1DZGpDS1RDhs-ZJA")
+    await bot.send_message(message.chat.id,
+                           text=f"Ой, кажется, вы что-то сделали не так! Вот подробная инструкция по использованию бота: https://youtu.be/dQw4w9WgXcQ?si=1DZGpDS1RDhs-ZJA")
 
-#bot.polling(none_stop=True, interval=0)
+
+asyncio.run(bot.infinity_polling())
