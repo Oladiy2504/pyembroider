@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 from PIL import Image
+from sklearn.cluster import KMeans
 from reportlab.pdfgen import canvas
 
 from src.db.database_handler import GammaHandler
@@ -76,7 +77,7 @@ def closest_color_from_selected(requested_color, selected_colors, palette):
     """Находите ближайший цвет из выбранных цветов."""
     min_distance = float('inf')
     closest_color = None
-    for color in selected_colors.keys():
+    for color in selected_colors.values():
         distance = sum((palette[color][i] - requested_color[i]) ** 2 for i in range(3))
         if distance < min_distance:
             min_distance = distance
@@ -91,12 +92,14 @@ def create_color_scheme(image, grid_size, palette, user_palette, max_colors=None
 
     scheme = []
     color_counts = {}
+    color_samples = []
 
     for y in range(0, height, grid_size):
         row = []
         for x in range(0, width, grid_size):
             block = img_array[y:y + grid_size, x:x + grid_size]
             avg_color = get_average_color(block)
+            color_samples.append(avg_color)
             color_index = closest_color(avg_color, palette, user_palette, alpha)
             row.append(color_index)
             color_counts[color_index] = color_counts.get(color_index, 0) + 1
@@ -104,26 +107,30 @@ def create_color_scheme(image, grid_size, palette, user_palette, max_colors=None
         scheme.append(row)
 
     if max_colors is not None:
-        if len(color_counts) > max_colors:
-            sorted_colors = sorted(color_counts.items(), key=lambda item: item[1], reverse=True)
-            selected_colors = {color: count for color, count in sorted_colors[:max_colors]}
-        else:
-            selected_colors = color_counts
+        color_counts1 = {}
+        color_samples = np.array(color_samples)
+        kmeans = KMeans(n_clusters=max_colors, random_state=0).fit(color_samples)
+        cluster_centers = kmeans.cluster_centers_
+        new_colors = {i: cluster_centers[i] for i in range(len(cluster_centers))}
+        closest_colors = {}
+
+        for color_id, rgb_color in new_colors.items():
+            closest = closest_color(rgb_color, palette, user_palette, alpha)
+            closest_colors[color_id] = closest
 
         for y in range(len(scheme)):
             for x in range(len(scheme[y])):
                 color = scheme[y][x]
-                if color not in selected_colors:
-                    avg_color = np.array(palette[color])
-                    clos_color = closest_color_from_selected(avg_color, selected_colors, palette)
-                    if clos_color is not None:
-                        scheme[y][x] = clos_color
-                        color_counts[clos_color] = color_counts.get(clos_color, 0) + 1
-                    else:
-                        print(f"Не найдено близких цветов {color} в точке ({x}, {y})")
+                avg_color = np.array(palette[color])
+                clos_color = closest_color_from_selected(avg_color, closest_colors, palette)
+                if clos_color is not None:
+                    scheme[y][x] = clos_color
+                    color_counts1[clos_color] = color_counts1.get(clos_color, 0) + 1
+                else:
+                    print(f"Не найдено близких цветов для {avg_color} в точке ({x}, {y})")
 
-        color_counts = selected_colors
 
+        return scheme, color_counts1
     return scheme, color_counts
 
 
@@ -161,7 +168,7 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
             c.drawString(x * scale + scale / 4, (num_rows - y - 1) * scale + scale / 4, color_number)
 
     c.showPage()
-    c.setFont("Helvetica", 20)
+    c.setFont("Helvetica", num_rows/4)
     page_width, page_height = num_cols * scale, num_rows * scale
     c.drawString(10, page_height - 40, "Color Descriptions:")
     y_offset = page_height - 60
@@ -183,7 +190,7 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
 
         if y_offset < 50:
             c.showPage()
-            c.setFont("Helvetica", 20)
+            c.setFont("Helvetica", num_rows/4)
             c.drawString(10, page_height - 40, "Color Descriptions:")
             y_offset = page_height - 60
 
