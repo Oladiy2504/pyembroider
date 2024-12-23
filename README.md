@@ -35,3 +35,6 @@
   3) Дятлова Мария - алгоритмы обработки картинки и создания схемы + дизайн
 
 **Standartenführer:** Kopnev Maksim - @Oladiy2504
+
+## Демонстрация работы проекта
+https://disk.yandex.ru/i/XI5qOcqRPM2hKQ
