@@ -23,12 +23,13 @@ def get_palette():
 
 def get_user_palette(tg_id: int):
     db_path = os.path.join(os.path.dirname(__file__), '..', 'db', 'user_colors.sql')
+    gamma_db_path = os.path.join(os.path.dirname(__file__), '..', 'db', 'colors.sql')
     try:
         user_handler = UserDatabaseHandler(db_path)
         ids = user_handler.select_available_colors(tg_id)
         user_handler.teardown()
 
-        gamma_handler = GammaHandler(db_path)
+        gamma_handler = GammaHandler(gamma_db_path)
         results = dict()
         for gamma_id in ids:
             results[gamma_id] = gamma_handler.get_rgb(gamma_id)
@@ -190,7 +191,7 @@ def save_scheme_to_pdf(scheme, color_counts, filename):
             y_offset -= 5
 
     c.showPage()
-    c.drawImage(kitten_path, 0, 0, width = num_cols * scale, height = num_rows * scale)
+    c.drawImage(kitten_path, 0, 0, width=num_cols * scale, height=num_rows * scale)
 
     c.save()
 

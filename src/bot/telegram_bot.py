@@ -4,20 +4,19 @@ import os
 from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 
-from src.parsing.parsing_data import strings_parsing, conv_parsing
+from src.parsing.parsing_data import strings_parsing, canvas_parsing
 from src.db.user_database_handler import UserDatabaseHandler
 from src.util.image_processing import image_proc
 from src.util.text_constants import *
 
-flags = {'adding_pic': -1, 'changing_conv': -2, 'adding_strings': -3, 'asking_to_withdraw': -4, 'if_withdrawing': -5}
+import concurrent.futures
+
+flags = {'adding_pic': -1, 'changing_canvas': -2, 'adding_strings': -3, 'asking_to_withdraw': -4}
 
 handler = UserDatabaseHandler("../db/user_colors.sql")
 TOKEN = '7932733884:AAFsKDKeuFDvlbtue-jgf-bU2XKdMdzVgrM'
 
 bot = AsyncTeleBot(TOKEN)
-
-length = 100
-width = 100
 
 
 def update_user_flag(user_id, flag_name, state: bool) -> None:  # флаги для ввода ин-фы от юзера
@@ -37,8 +36,18 @@ def check_user_flag(user_id, flag_name) -> int:
 
 @bot.message_handler(commands=['start'])
 async def help_handler(message):  # базовые кнопки
+    # Увеличиваем количество одновременно обрабатываемых потоков
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(executor)
+
     user_id = message.from_user.id
     handler.insert_user(user_id)
+
+    update_user_flag(message.chat.id, "changing_canvas", False)
+    update_user_flag(message.chat.id, "asking_to_withdraw", False)
+    update_user_flag(message.chat.id, "adding_strings", False)
+    update_user_flag(message.chat.id, "adding_pic", False)
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     help_button = types.KeyboardButton(HELP_BUTTON_TEXT)
@@ -54,7 +63,7 @@ async def command_handler(message):
     user_id = message.chat.id
 
     if not any(check_user_flag(user_id, flag) for flag in
-               ['adding_pic', 'changing_conv', 'adding_strings', 'asking_to_withdraw']):  # чек кнопок
+               ['adding_pic', 'changing_canvas', 'adding_strings', 'asking_to_withdraw']):  # чек кнопок
         if message.text == HELP_BUTTON_TEXT or message.text == '/help':
             await bot.send_message(user_id, text=HELP_MESSAGE_TEXT, parse_mode='Markdown')
 
@@ -63,17 +72,21 @@ async def command_handler(message):
             await bot.send_message(user_id, text=ADD_STRINGS_MESSAGE_TEXT)
 
         elif message.text == PROCESS_BUTTON_TEXT or message.text == '/process':
-            update_user_flag(user_id, 'changing_conv', True)
+            update_user_flag(user_id, 'changing_canvas', True)
             await bot.send_message(user_id, text=PROCESS_MESSAGE_TEXT)
 
         elif message.text == EXPLAIN_BUTTON_TEXT or message.text == '/explain':
             await bot.send_message(user_id, text=EXPLAIN_MESSAGE_TEXT)
 
+        elif message.text == '/clear':
+            handler.clear_user_available(message.chat.id)
+            await bot.send_message(user_id, text=CLEAR_MESSAGE)
+
         else:
             await bot.send_message(user_id, text=BAD_COMMAND_MESSAGE_TEXT)
 
     elif message.text == '/stop' and not check_user_flag(message.chat.id, "adding_strings"):
-        update_user_flag(message.chat.id, "changing_conv", False)
+        update_user_flag(message.chat.id, "changing_canvas", False)
         update_user_flag(message.chat.id, "asking_to_withdraw", False)
         update_user_flag(message.chat.id, "adding_strings", False)
         update_user_flag(message.chat.id, "adding_pic", False)
@@ -84,38 +97,40 @@ async def command_handler(message):
             await bot.send_message(message.chat.id, text=STOP_ADDING_MESSAGE)
             update_user_flag(message.chat.id, "adding_strings", False)
         else:
-            text_data = strings_parsing(message.text)
+            loop = asyncio.get_running_loop()
+            text_data = await loop.run_in_executor(None, strings_parsing, message.text)
             if text_data:
                 for [i, j] in text_data:
                     handler.insert_available(message.chat.id, i, j)
-                    continue
+                update_user_flag(message.chat.id, "adding_strings", False)
+                await bot.send_message(message.chat.id, text=ADDED_MESSAGE)
             else:
                 await bot.send_message(message.chat.id, text=WRONG_FORMAT_MESSAGE)
 
 
-    elif check_user_flag(user_id, 'changing_conv'):
-        text_data = conv_parsing(message.text)
+    elif check_user_flag(user_id, 'changing_canvas'):
+        loop = asyncio.get_running_loop()
+        text_data = await loop.run_in_executor(None, canvas_parsing, message.text)
         if text_data:
-            global length, width
-            length, width = text_data
-            await bot.send_message(user_id, text=USE_STRINGS_Q_MESSAGE)
-            update_user_flag(user_id, 'changing_conv', False)
+            await loop.run_in_executor(None, handler.update_canvas, message.chat.id, text_data[0], text_data[1])
+            await bot.send_message(user_id, text=USE_STRINGS_MESSAGE)
+            update_user_flag(user_id, 'changing_canvas', False)
             update_user_flag(user_id, 'asking_to_withdraw', True)
         else:
             await bot.send_message(user_id, text=WRONG_DATA_MESSAGE)
 
 
     elif check_user_flag(user_id, 'asking_to_withdraw'):
-        if message.text.lower() == "да":
-            update_user_flag(user_id, 'if_withdraw', True)
-            await bot.send_message(user_id, text=USE_STRINGS_MESSAGE)
-            update_user_flag(user_id, 'asking_to_withdraw', False)
-            update_user_flag(user_id, 'adding_pic', True)
-        elif message.text.lower() == "нет":
-            update_user_flag(user_id, 'if_withdraw', False)
-            await bot.send_message(user_id, text=NO_USE_STRINGS_MESSAGE)
-            update_user_flag(user_id, 'asking_to_withdraw', False)
-            update_user_flag(user_id, 'adding_pic', True)
+        if message.text.isdigit():
+            alpha = int(message.text)
+            if alpha < 0 or alpha > 1000:
+                await bot.send_message(user_id, text=WRONG_ALPHA_MESSAGE)
+            else:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, handler.update_alpha, message.chat.id, alpha)
+                await bot.send_message(user_id, text=SEND_NUDES_MESSAGE)
+                update_user_flag(user_id, 'asking_to_withdraw', False)
+                update_user_flag(user_id, 'adding_pic', True)
         else:
             await bot.send_message(user_id, text=WRONG_DATA_MESSAGE)
     else:
@@ -131,8 +146,11 @@ async def handle_image(message):
         pdf_path = f'output_image.pdf{message.chat.id}.pdf'
         with open(image_path, 'wb') as new_file:
             new_file.write(downloaded_file)
-        image_proc(image_path, pdf_path, message.chat.id, None, (length, width), 1,
-                   check_user_flag(message.chat.id, 'if_withdraw') * 100)
+        params = handler.get_processing_params(message.chat.id)
+        args = (image_path, pdf_path, message.chat.id, None, (params[0], params[1]), 1, params[2])
+        loop = asyncio.get_running_loop()
+        # noinspection PyTypeChecker
+        await loop.run_in_executor(None, image_proc, *args)
         with open(pdf_path, 'rb') as pdf_file:
             await bot.send_document(message.chat.id, pdf_file)
         os.remove(image_path)

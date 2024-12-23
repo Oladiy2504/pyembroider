@@ -1,4 +1,7 @@
-from sqlalchemy import Column, Integer, Float, UniqueConstraint, insert, select, update, ForeignKey
+from email.policy import default
+
+from dns.e164 import query
+from sqlalchemy import Column, Integer, Float, UniqueConstraint, insert, select, update, delete, ForeignKey
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -33,6 +36,9 @@ class UserSettingsTable(UserBase):
     Id = Column(Integer, primary_key=True)
     UserId = Column(Integer, ForeignKey('user_id.Id'))
     UserSettings = Column(Integer, default=0)
+    Length = Column(Integer, default=100)
+    Width = Column(Integer, default=100)
+    Alpha = Column(Integer, default=0)
 
     user_id = relationship("UserIdTable", back_populates="settings")
 
@@ -69,7 +75,8 @@ class UserDatabaseHandler(DataBaseHandler):
         UserBase.metadata.create_all(self.engine)
 
     def check_user_id(self, tg_id: int):
-        pass
+        if self.get_user_id(tg_id) == -1:
+            self.insert_user(tg_id)
 
     def insert_user(self, tg_id: int):
         try:
@@ -91,8 +98,9 @@ class UserDatabaseHandler(DataBaseHandler):
         """
         query = select(UserIdTable.Id).where(UserIdTable.TgUserId == tg_id)
         results = self.connection.execute(query).fetchone()
+        if len(results) == 0:
+            return -1
         return results[0]
-
 
     def insert_available(self, tg_id: int, gamma_id: int, count: float) -> None:
         """
@@ -102,7 +110,7 @@ class UserDatabaseHandler(DataBaseHandler):
         :param count: list of rgb values
         :return: nothing
         """
-
+        self.check_user_id(tg_id)
         try:
             user_id = self.get_user_id(tg_id)
             query = insert(UserAvailableTable).values(UserId=user_id, GammaId=gamma_id, Count=count)
@@ -111,26 +119,58 @@ class UserDatabaseHandler(DataBaseHandler):
         except IntegrityError:
             pass
 
-    def select_available_colors(self, tg_id: int) -> list[tuple[int, float]]:
+    def select_available_colors(self, tg_id: int) -> list[int]:
         """
         Selects all the available colors in user database
-        :return: list of available colors gamma_ids with counts
+        :return: list of available colors gamma_ids
         """
-        query = select(UserAvailableTable.GammaId, UserAvailableTable.Count).join(UserIdTable).where(UserIdTable.TgUserId == tg_id)
+        self.check_user_id(tg_id)
+        query = select(UserAvailableTable.GammaId).join(UserIdTable).where(
+            UserIdTable.TgUserId == tg_id)
         results = self.connection.execute(query).fetchall()
-        return results
+        return [i[0] for i in results]
 
     def update_user_settings(self, tg_id: int, settings: int) -> None:
         if settings < 0 or settings > 14:
             raise ValueError("Settings must be between 0 and 14")
+        self.check_user_id(tg_id)
         user_id = self.get_user_id(tg_id)
         query = update(UserSettingsTable).where(UserSettingsTable.UserId == user_id).values(UserSettings=settings)
         self.connection.execute(query)
         self.connection.commit()
 
     def get_user_settings(self, tg_id: int) -> int:
+        self.check_user_id(tg_id)
         user_id = self.get_user_id(tg_id)
         query = select(UserSettingsTable.UserSettings).where(UserSettingsTable.UserId == user_id)
         result = self.connection.execute(query).fetchone()
         return result[0]
 
+    def get_processing_params(self, tg_id: int) -> tuple[int, int, int]:
+        self.check_user_id(tg_id)
+        user_id = self.get_user_id(tg_id)
+        query = select(UserSettingsTable.Length, UserSettingsTable.Width, UserSettingsTable.Alpha).where(
+            UserSettingsTable.UserId == user_id)
+        result = self.connection.execute(query).fetchone()
+        return result
+
+    def update_canvas(self, tg_id: int, length: int, width: int) -> None:
+        self.check_user_id(tg_id)
+        user_id = self.get_user_id(tg_id)
+        query = update(UserSettingsTable).where(UserSettingsTable.UserId == user_id).values(Length=length, Width=width)
+        self.connection.execute(query)
+        self.connection.commit()
+
+    def update_alpha(self, tg_id: int, alpha) -> None:
+        self.check_user_id(tg_id)
+        user_id = self.get_user_id(tg_id)
+        query = update(UserSettingsTable).where(UserSettingsTable.UserId == user_id).values(Alpha=alpha)
+        self.connection.execute(query)
+        self.connection.commit()
+
+    def clear_user_available(self, tg_id: int) -> None:
+        self.check_user_id(tg_id)
+        user_id = self.get_user_id(tg_id)
+        query = delete(UserAvailableTable).where(UserAvailableTable.UserId == user_id)
+        self.connection.execute(query)
+        self.connection.commit()

@@ -57,7 +57,7 @@ def test_update_user_settings():
 def test_update_user_settings_incorrect():
     test_handler = UserDatabaseHandler("test_user_db.sql")
     try:
-        test_handler.update_user_settings(42, 15)
+        test_handler.update_user_settings(42, 16)
         assert False
     except ValueError as e:
         assert str(e) == "Settings must be between 0 and 14"

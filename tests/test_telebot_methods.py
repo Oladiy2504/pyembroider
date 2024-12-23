@@ -1,5 +1,5 @@
 from src.bot.telegram_bot import update_user_flag, check_user_flag
-from src.parsing.parsing_data import strings_parsing, conv_parsing
+from src.parsing.parsing_data import strings_parsing, canvas_parsing
 
 
 def test_flag_updates():
@@ -24,10 +24,10 @@ def check_normal_strings():
 
 def check_conv_parsing():
     conv = "123 123"
-    assert conv_parsing(conv) == [123, 123]
+    assert canvas_parsing(conv) == [123, 123]
 
     conv = "GOIDA"
-    assert conv_parsing(conv) == []
+    assert canvas_parsing(conv) == []
 
 test_flag_updates()
 test_diff_users_flag_updates()
