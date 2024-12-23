@@ -1,6 +1,9 @@
 import numpy as np
 from collections import deque
 
+"""
+DEPRECATED
+"""
 
 def string_length_count(scale: float, dots_cnt: int, image: np.array, first_dot: list, color=()) -> float:
     done_dots = [first_dot]

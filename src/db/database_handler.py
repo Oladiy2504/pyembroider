@@ -43,6 +43,7 @@ class GammaHandler(DataBaseHandler):
     """
     Handler for Gamma-colors database
     """
+
     def __init__(self, sqlite_db_path: str):
         super().__init__(sqlite_db_path)
         ColorBase.metadata.create_all(self.engine)
