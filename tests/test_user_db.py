@@ -37,6 +37,7 @@ def test_insert_available():
     assert list(result[2:]) == [101, 1]
     test_handler.teardown()
 
+
 def test_select_available():
     test_handler = UserDatabaseHandler("test_user_db.sql")
     test_handler.insert_available(42, 101, 1)
@@ -45,6 +46,8 @@ def test_select_available():
     assert len(result) == 2
     assert 101 in result
     assert 102 in result
+    test_handler.teardown()
+
 
 def test_update_user_settings():
     test_handler = UserDatabaseHandler("test_user_db.sql")
@@ -53,6 +56,8 @@ def test_update_user_settings():
     test_handler.update_user_settings(42, 13)
     settings = test_handler.get_user_settings(42)
     assert settings == 13
+    test_handler.teardown()
+
 
 def test_update_user_settings_incorrect():
     test_handler = UserDatabaseHandler("test_user_db.sql")
@@ -61,11 +66,21 @@ def test_update_user_settings_incorrect():
         assert False
     except ValueError as e:
         assert str(e) == "Settings must be between 0 and 14"
+    test_handler.teardown()
 
-def test_update_user_settings_incorrect():
+
+def test_get_processing_params():
     test_handler = UserDatabaseHandler("test_user_db.sql")
-    try:
-        test_handler.update_user_settings(42, 16)
-        assert False
-    except ValueError as e:
-        assert str(e) == "Settings must be between 0 and 14"
+    params = test_handler.get_processing_params(42)
+    assert params == (100, 100, 0, 100)
+    test_handler.update_canvas(42, 120, 80)
+    test_handler.update_params(42, 999, 21)
+    params = test_handler.get_processing_params(42)
+    assert params == (120, 80, 999, 21)
+    test_handler.teardown()
+
+
+def test_clear_user_available():
+    test_handler = UserDatabaseHandler("test_user_db.sql")
+    test_handler.clear_user_available(42)
+    assert test_handler.select_available_colors(42) == []

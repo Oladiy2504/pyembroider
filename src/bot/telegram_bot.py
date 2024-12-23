@@ -1,15 +1,14 @@
 import asyncio
+import concurrent.futures
 import os
 
 from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 
-from src.parsing.parsing_data import strings_parsing, two_numbers_parsing
 from src.db.user_database_handler import UserDatabaseHandler
+from src.parsing.parsing_data import strings_parsing, two_numbers_parsing
 from src.util.image_processing import image_proc
 from src.util.text_constants import *
-
-import concurrent.futures
 
 flags = {'adding_pic': -1, 'changing_canvas': -2, 'adding_strings': -3, 'asking_to_withdraw': -4}
 
