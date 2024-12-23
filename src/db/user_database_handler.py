@@ -1,6 +1,3 @@
-from email.policy import default
-
-from dns.e164 import query
 from sqlalchemy import Column, Integer, Float, UniqueConstraint, insert, select, update, delete, ForeignKey
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, relationship
@@ -39,6 +36,7 @@ class UserSettingsTable(UserBase):
     Length = Column(Integer, default=100)
     Width = Column(Integer, default=100)
     Alpha = Column(Integer, default=0)
+    MaxColors = Column(Integer, default=100)
 
     user_id = relationship("UserIdTable", back_populates="settings")
 
@@ -146,10 +144,11 @@ class UserDatabaseHandler(DataBaseHandler):
         result = self.connection.execute(query).fetchone()
         return result[0]
 
-    def get_processing_params(self, tg_id: int) -> tuple[int, int, int]:
+    def get_processing_params(self, tg_id: int) -> tuple[int, int, int, int]:
         self.check_user_id(tg_id)
         user_id = self.get_user_id(tg_id)
-        query = select(UserSettingsTable.Length, UserSettingsTable.Width, UserSettingsTable.Alpha).where(
+        query = select(UserSettingsTable.Length, UserSettingsTable.Width, UserSettingsTable.Alpha,
+                       UserSettingsTable.MaxColors).where(
             UserSettingsTable.UserId == user_id)
         result = self.connection.execute(query).fetchone()
         return result
@@ -161,10 +160,11 @@ class UserDatabaseHandler(DataBaseHandler):
         self.connection.execute(query)
         self.connection.commit()
 
-    def update_alpha(self, tg_id: int, alpha) -> None:
+    def update_params(self, tg_id: int, alpha: int, max_colors: int) -> None:
         self.check_user_id(tg_id)
         user_id = self.get_user_id(tg_id)
-        query = update(UserSettingsTable).where(UserSettingsTable.UserId == user_id).values(Alpha=alpha)
+        query = update(UserSettingsTable).where(UserSettingsTable.UserId == user_id).values(Alpha=alpha,
+                                                                                            MaxColors=max_colors)
         self.connection.execute(query)
         self.connection.commit()
 

@@ -4,7 +4,7 @@ import os
 from telebot import types
 from telebot.async_telebot import AsyncTeleBot
 
-from src.parsing.parsing_data import strings_parsing, canvas_parsing
+from src.parsing.parsing_data import strings_parsing, two_numbers_parsing
 from src.db.user_database_handler import UserDatabaseHandler
 from src.util.image_processing import image_proc
 from src.util.text_constants import *
@@ -110,7 +110,7 @@ async def command_handler(message):
 
     elif check_user_flag(user_id, 'changing_canvas'):
         loop = asyncio.get_running_loop()
-        text_data = await loop.run_in_executor(None, canvas_parsing, message.text)
+        text_data = await loop.run_in_executor(None, two_numbers_parsing, message.text)
         if text_data:
             await loop.run_in_executor(None, handler.update_canvas, message.chat.id, text_data[0], text_data[1])
             await bot.send_message(user_id, text=USE_STRINGS_MESSAGE)
@@ -121,13 +121,18 @@ async def command_handler(message):
 
 
     elif check_user_flag(user_id, 'asking_to_withdraw'):
-        if message.text.isdigit():
-            alpha = int(message.text)
+        loop = asyncio.get_running_loop()
+        data = await loop.run_in_executor(None, two_numbers_parsing, message.text)
+        if len(data) == 2:
+            alpha = int(data[0])
             if alpha < 0 or alpha > 1000:
                 await bot.send_message(user_id, text=WRONG_ALPHA_MESSAGE)
+            max_colors = int(data[1])
+            if max_colors <= 0:
+                await bot.send_message(user_id, text=WRONG_MAX_COLORS_MESSAGE)
             else:
                 loop = asyncio.get_running_loop()
-                await loop.run_in_executor(None, handler.update_alpha, message.chat.id, alpha)
+                await loop.run_in_executor(None, handler.update_params, message.chat.id, alpha, max_colors)
                 await bot.send_message(user_id, text=SEND_NUDES_MESSAGE)
                 update_user_flag(user_id, 'asking_to_withdraw', False)
                 update_user_flag(user_id, 'adding_pic', True)
@@ -147,7 +152,7 @@ async def handle_image(message):
         with open(image_path, 'wb') as new_file:
             new_file.write(downloaded_file)
         params = handler.get_processing_params(message.chat.id)
-        args = (image_path, pdf_path, message.chat.id, None, (params[0], params[1]), 1, params[2])
+        args = (image_path, pdf_path, message.chat.id, params[3], (params[0], params[1]), 1, params[2])
         loop = asyncio.get_running_loop()
         # noinspection PyTypeChecker
         await loop.run_in_executor(None, image_proc, *args)

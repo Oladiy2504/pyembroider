@@ -13,7 +13,7 @@ def strings_parsing(s: str) -> list:
     return ans
 
 
-def canvas_parsing(s: str) -> list:
+def two_numbers_parsing(s: str) -> list:
     """
     Парсит строку из двух чисел, разделенных пробелом.
     Возвращает пару [число1, число2] или пустой список, если строка некорректна.

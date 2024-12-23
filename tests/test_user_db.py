@@ -43,8 +43,8 @@ def test_select_available():
     test_handler.insert_available(42, 102, 3)
     result = test_handler.select_available_colors(42)
     assert len(result) == 2
-    assert (101, 1) in result
-    assert (102, 3) in result
+    assert 101 in result
+    assert 102 in result
 
 def test_update_user_settings():
     test_handler = UserDatabaseHandler("test_user_db.sql")
@@ -53,6 +53,14 @@ def test_update_user_settings():
     test_handler.update_user_settings(42, 13)
     settings = test_handler.get_user_settings(42)
     assert settings == 13
+
+def test_update_user_settings_incorrect():
+    test_handler = UserDatabaseHandler("test_user_db.sql")
+    try:
+        test_handler.update_user_settings(42, 16)
+        assert False
+    except ValueError as e:
+        assert str(e) == "Settings must be between 0 and 14"
 
 def test_update_user_settings_incorrect():
     test_handler = UserDatabaseHandler("test_user_db.sql")
